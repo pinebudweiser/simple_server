@@ -5,12 +5,75 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
+#define MAX_LEN			256
 #define GET_CHAT		0x1000
 #define SAVE_CHAT		0x1001
 #define RECEIVE_CHAT	0x1002
 
-DWORD CALLBACK ServerThread(LPVOID lParam)
+void make_chat_data(FILE* fp, char* send_buffer)
 {
+	char temp_buffer[100] = { 0 };
+	char* string;
+	strcpy(send_buffer, " ");
+	while (!feof(fp))
+	{
+		fgets(temp_buffer, 100, fp);
+		printf("string : %s", temp_buffer);
+		strcat(send_buffer, temp_buffer);
+	}
+	printf("send_buffer : %s\n", send_buffer);
+}
+
+DWORD CALLBACK ServerThread(SOCKET lParam)
+{
+	char ClientMessage[256] = { 0, };
+	char send_buffer_list[4096];
+	char MessageCode[5];
+	int ClientResult = 0;
+	uint32_t MessageCodeInt;
+
+	while (TRUE)
+	{
+		FILE* FileDescriptor = fopen("ChatLog.txt", "a+");
+
+		ClientResult = recv(lParam, ClientMessage, sizeof(ClientMessage), 0);
+
+		if (ClientResult > 0)
+		{
+		//	printf("[DBG] Bytes received: %d\n", ClientResult);
+		}
+		else if (ClientResult == 0)
+		{
+			printf("[DBG] Connection closed\n");
+			break;
+		}
+		else
+		{
+			printf("[DBG] recv failed: %d\n", WSAGetLastError());
+			break;
+		}
+		sscanf(ClientMessage, "%d:", &MessageCodeInt);
+		//printf("MessageCodeInt : %d\n", MessageCodeInt);
+		switch (MessageCodeInt)
+		{
+		case GET_CHAT:
+			printf("You called GET_CHAT! Good Job :)\n");
+			make_chat_data(FileDescriptor, send_buffer_list);
+			send(lParam, send_buffer_list, sizeof(send_buffer_list), 0);
+			fclose(FileDescriptor);
+			break;
+		case SAVE_CHAT:
+			printf("[DBG] Client Message: %s\n", ClientMessage);
+			fprintf(FileDescriptor, "%s\n", ClientMessage);
+			fclose(FileDescriptor);
+			break;
+		case RECEIVE_CHAT:
+			break;
+		default:
+			printf("[ERR] I DON'T KNOW THIS CODE\n");
+		}
+		fclose(FileDescriptor);
+	}
 	return 0;
 }
 
@@ -20,7 +83,6 @@ int main(int argc, char** argv)
 	WSADATA WsaData;
 	struct sockaddr_in ChatServer;
 	int WsaRet;
-	FILE* FileDescriptor = fopen("ChatLog.txt", "a+");
 
 	WsaRet = WSAStartup(MAKEWORD(2, 2), &WsaData);
 	if (WsaRet != 0)
@@ -53,53 +115,18 @@ int main(int argc, char** argv)
 	SOCKET ClientDescriptor;
 	struct sockaddr_in ClientSockAddr;
 	int ClientAddrLen = sizeof(ClientSockAddr);
-	int ClientResult = 0;
-	char ClientMessage[1024];
-	char MessageCode[5];
-	uint32_t MessageCodeInt;
-
-	if ((ClientDescriptor = accept(SocketDescriptor, &ClientSockAddr, &ClientAddrLen)) == -1)
-	{
-		printf("[Err] Accept failed : %d\n", WSAGetLastError());
-		return 1;
-	}
 
 	while (1)
 	{
-		ClientResult = recv(ClientDescriptor, ClientMessage, strlen(ClientMessage), 0);
-
-		if (ClientResult > 0)
+		Sleep(1);
+		if ((ClientDescriptor = accept(SocketDescriptor, &ClientSockAddr, &ClientAddrLen)) == -1)
 		{
-			printf("Bytes received: %d\n", ClientResult);
+			printf("[Err] Accept failed : %d\n", WSAGetLastError());
+			return 1;
 		}
-		else if (ClientResult == 0)
-		{
-			printf("Connection closed\n");
-		}
-		else
-		{
-			printf("recv failed: %d\n", WSAGetLastError());
-		}
-		printf("Client Message : %s\n", ClientMessage);
-		//sscanf(MessageCode, "%s:", ClientMessage);
-		MessageCodeInt = atoi(MessageCode);
-
-		switch (MessageCodeInt)
-		{
-		case GET_CHAT:
-			break;
-		case SAVE_CHAT:
-			fputs(ClientMessage, FileDescriptor);
-			send(ClientDescriptor, ClientMessage, strlen(ClientMessage), 0);
-			fclose(FileDescriptor);
-			break;
-		case RECEIVE_CHAT:
-			break;
-		default:
-			printf("[ERR] I DON'T KNOW THIS CODE\n");
-		}
+		CreateThread(NULL, 0, ServerThread, ClientDescriptor, NULL, NULL);
+		Sleep(100);
 	}
-	fclose(FileDescriptor);
 	closesocket(SocketDescriptor);
 	WSACleanup(WsaRet);
 	return 0;
