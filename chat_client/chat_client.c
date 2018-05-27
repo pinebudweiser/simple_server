@@ -12,17 +12,34 @@
 void print_chat(char* ChatBuffer)
 {
 	printf("-------------------------------------------------------\n");
+	printf("%s\n", ChatBuffer);
 	printf("-------------------------------------------------------\n");
+}
+void send_with_message_code(int MessageCode, SOCKET socket, char* Message)
+{
+	char MessageBuffer[5];
+	char SendBuffer[256];
+
+	itoa(MessageCode, MessageBuffer, 10);
+	
+	sprintf(SendBuffer, "%s:%s", MessageBuffer, Message);
+	send(socket, SendBuffer, strlen(SendBuffer)+1, 0);
+}
+DWORD CALLBACK chat_viewer(LPVOID lParam)
+{
+
+	return 0;
 }
 
 int main(int argc, char** argv)
 {
-	uint32_t IPAddress;
 	uint16_t Port;
+	uint32_t IPAddress;
 	SOCKET SocketDescriptor;
 	WSADATA WsaData;
 	struct sockaddr_in ChatServer;
 	char buffer[256] = { 0, };
+	char recv_buffer[4096] = { 0, };
 	int WsaRet;
 
 	if (argc != 3)
@@ -56,12 +73,16 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	while (1)
+	// Get Message
+	
+	while (TRUE)
 	{
-		print_chat(buffer);
+		send_with_message_code(0x1000, SocketDescriptor, "");
+		recv(SocketDescriptor, recv_buffer, sizeof(recv_buffer), 0);
+		print_chat(recv_buffer);
 		printf("Input Your Message: ");
-		scanf("%s", buffer);
-		send(SocketDescriptor, buffer, strlen(buffer) , 0);
+		gets(buffer);
+		send_with_message_code(0x1001, SocketDescriptor, buffer);
 		system("cls");
 	}
 
