@@ -25,9 +25,15 @@ void send_with_message_code(int MessageCode, SOCKET socket, char* Message)
 	sprintf(SendBuffer, "%s:%s", MessageBuffer, Message);
 	send(socket, SendBuffer, strlen(SendBuffer)+1, 0);
 }
-DWORD CALLBACK chat_viewer(LPVOID lParam)
+DWORD CALLBACK chat_viewer(SOCKET sd)
 {
-
+	char buffer[256] = { 0, };
+	while (1)
+	{
+		printf("Input Your Message: ");
+		gets(buffer);
+		send_with_message_code(0x1001, sd, buffer);
+	}
 	return 0;
 }
 
@@ -38,7 +44,6 @@ int main(int argc, char** argv)
 	SOCKET SocketDescriptor;
 	WSADATA WsaData;
 	struct sockaddr_in ChatServer;
-	char buffer[256] = { 0, };
 	char recv_buffer[4096] = { 0, };
 	int WsaRet;
 
@@ -74,15 +79,20 @@ int main(int argc, char** argv)
 	}
 
 	// Get Message
-	
+	CreateThread(NULL, 0, chat_viewer, SocketDescriptor, NULL, NULL);
+	Sleep(100);
+
 	while (TRUE)
 	{
 		send_with_message_code(0x1000, SocketDescriptor, "");
 		recv(SocketDescriptor, recv_buffer, sizeof(recv_buffer), 0);
 		print_chat(recv_buffer);
+		/*
 		printf("Input Your Message: ");
 		gets(buffer);
 		send_with_message_code(0x1001, SocketDescriptor, buffer);
+		*/
+		Sleep(1000);
 		system("cls");
 	}
 
